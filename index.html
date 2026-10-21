@@ -64,23 +64,6 @@
 
     .search-bar button:active { opacity: 0.8; }
 
-    .camera-btn {
-      padding: 12px 14px;
-      border-radius: 12px;
-      border: 1px solid #2a2a4a;
-      background: #1a1a30;
-      color: #fff;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .camera-btn:active { opacity: 0.7; }
-    .camera-btn svg { width: 20px; height: 20px; }
-    .camera-btn.scanning { border-color: #f8c300; }
-    .camera-btn.scanning svg { animation: spin 1s linear infinite; }
 
     #status {
       padding: 16px;
@@ -291,13 +274,6 @@
   <div class="search-bar">
     <input type="text" id="searchInput" placeholder="e.g. Smeargle TG10 or Charizard 4/102" autocomplete="off" />
     <button onclick="search()">Search</button>
-    <button class="camera-btn" id="cameraBtn" onclick="triggerCamera()" title="Scan card">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-        <circle cx="12" cy="13" r="4"/>
-      </svg>
-    </button>
-    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(this)">
   </div>
 </header>
 
@@ -543,86 +519,6 @@
       ${low    ? `<div class="price-line"><span class="lbl">Low</span><span class="val">${low}</span></div>` : ''}
       ${high   ? `<div class="price-line"><span class="lbl">High</span><span class="val hi">${high}</span></div>` : ''}`;
   }
-
-  // ── Camera / OCR ──────────────────────────────────────────────────────────
-
-  let tesseractLoaded = false;
-
-  function triggerCamera() {
-    document.getElementById('cameraInput').click();
-  }
-
-  async function handlePhoto(input) {
-    const file = input.files[0];
-    if (!file) return;
-    input.value = '';
-
-    const btn = document.getElementById('cameraBtn');
-    btn.classList.add('scanning');
-    btn.disabled = true;
-    document.getElementById('status').innerHTML = '<span class="spinner"></span> Reading card...';
-
-    try {
-      await loadTesseract();
-      const { data: { text } } = await Tesseract.recognize(file, 'eng');
-      const result = parseCardText(text);
-
-      if (result) {
-        document.getElementById('searchInput').value = result;
-        search();
-      } else {
-        document.getElementById('status').textContent = 'Could not read card — try again with better lighting.';
-      }
-    } catch (e) {
-      document.getElementById('status').textContent = 'Scan failed. Try again.';
-    } finally {
-      btn.classList.remove('scanning');
-      btn.disabled = false;
-    }
-  }
-
-  function loadTesseract() {
-    if (tesseractLoaded) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-      s.onload  = () => { tesseractLoaded = true; resolve(); };
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
-
-  function parseCardText(raw) {
-    const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 1);
-
-    // Find card number — keep updating so we end up with the last match (bottom of card)
-    const numRegex = /\b([A-Z]*\d+)\/([A-Z0-9]+)\b/i;
-    let cardNumber = null;
-    for (const line of lines) {
-      const m = line.match(numRegex);
-      if (m) cardNumber = m[1]; // just the first part, e.g. "290" from "290/217"
-    }
-
-    // Find card name — first meaningful line that isn't a known non-name pattern
-    const skip = [
-      /^HP\s*\d/i,
-      /^(Stage|Basic|Item|Supporter|Stadium|Tool|Special|Energy|Ability|Poke|Evolves|Weakness|Resistance|Retreat)/i,
-      /^\d+$/,
-      /^[^a-zA-Z]/,
-    ];
-
-    let cardName = null;
-    for (const line of lines) {
-      if (skip.some(p => p.test(line))) continue;
-      cardName = line.replace(/\s+HP\s*\d+.*$/i, '').trim();
-      break;
-    }
-
-    if (!cardName) return null;
-    return cardNumber ? `${cardName} ${cardNumber}` : cardName;
-  }
-
-  // ── Init ──────────────────────────────────────────────────────────────────
 
   initRates();
 </script>
