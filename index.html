@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PokéPrice">
+  <title>PokéPrice</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #fff;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      padding: 20px 16px 16px;
+      border-bottom: 1px solid #2a2a4a;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f8c300;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 8px;
+    }
+
+    .search-bar input {
+      flex: 1;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #2a2a4a;
+      background: #1a1a30;
+      color: #fff;
+      font-size: 16px;
+      outline: none;
+    }
+
+    .search-bar input::placeholder { color: #555; }
+    .search-bar input:focus { border-color: #f8c300; }
+
+    .search-bar button {
+      padding: 12px 18px;
+      border-radius: 12px;
+      border: none;
+      background: #f8c300;
+      color: #000;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .search-bar button:active { opacity: 0.8; }
+
+    #status {
+      padding: 16px;
+      text-align: center;
+      color: #888;
+      font-size: 14px;
+    }
+
+    #results {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Card */
+    .card {
+      background: #1a1a2e;
+      border-radius: 16px;
+      border: 1px solid #2a2a4a;
+      overflow: hidden;
+      padding: 14px;
+    }
+
+    .card-top {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+
+    .card-top img {
+      width: 72px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+
+    .card-meta {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .card-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 3px;
+    }
+
+    .card-set {
+      font-size: 12px;
+      color: #888;
+    }
+
+    /* Price columns */
+    .price-cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .price-col {
+      background: #12122a;
+      border-radius: 10px;
+      padding: 10px;
+      border: 1px solid #1e1e3a;
+    }
+
+    .col-header {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #f8c300;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid #2a2a4a;
+    }
+
+    .col-header .rate-note {
+      display: block;
+      font-size: 9px;
+      color: #555;
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 400;
+      margin-top: 1px;
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #666;
+      margin: 10px 0 5px;
+    }
+
+    .section-title:first-of-type { margin-top: 0; }
+
+    .price-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2px 0;
+    }
+
+    .price-line .lbl {
+      font-size: 11px;
+      color: #777;
+    }
+
+    .price-line .val {
+      font-size: 12px;
+      font-weight: 700;
+      color: #4cd964;
+    }
+
+    .price-line .val.mkt { color: #f8c300; }
+    .price-line .val.hi  { color: #ff6b6b; }
+
+    .pending-text {
+      font-size: 11px;
+      color: #3a3a5a;
+      font-style: italic;
+      padding: 4px 0;
+    }
+
+    .ebay-btns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .ebay-row-label {
+      grid-column: 1 / -1;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #555;
+      margin-top: 4px;
+    }
+
+    .ebay-row-label:first-child { margin-top: 0; }
+
+    .ebay-btn {
+      padding: 9px 0;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      display: block;
+    }
+
+    .ebay-btn.sold {
+      background: #3a6bc4;
+      color: #fff;
+      border: none;
+    }
+
+    .ebay-btn.search {
+      background: transparent;
+      color: #3a6bc4;
+      border: 1px solid #3a6bc4;
+    }
+
+    .ebay-btn:active { opacity: 0.7; }
+
+    /* Load more */
+    .load-more {
+      margin: 8px 16px 24px;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid #2a2a4a;
+      background: transparent;
+      color: #f8c300;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      width: calc(100% - 32px);
+    }
+
+    .load-more:active { opacity: 0.7; }
+
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid #333;
+      border-top-color: #f8c300;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>PokéPrice</h1>
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="e.g. Smeargle TG10 or Charizard 4/102" autocomplete="off" />
+    <button onclick="search()">Search</button>
+  </div>
+</header>
+
+<div id="status">Search for a card to see prices.</div>
+<div id="results"></div>
+<button id="loadMoreBtn" class="load-more" style="display:none" onclick="loadMore()">Load more results</button>
+
+<script>
+  const API = 'https://api.pokemontcg.io/v2/cards';
+  let currentPage = 1;
+  let currentQuery = '';
+  let parsedName = '';
+  let parsedNumber = '';
+  let activeQuery = '';
+  let totalCount = 0;
+  let usdToGbp = null;
+  const PAGE_SIZE = 10;
+
+  const NUMBER_PATTERN = /^[A-Z]*\d+(?:\/[A-Z0-9]*)?$/i;
+
+  let eurToGbp = null;
+
+  async function initRates() {
+    try {
+      const res = await fetch('https://open.er-api.com/v6/latest/USD');
+      const data = await res.json();
+      usdToGbp = data.rates?.GBP || null;
+      const eur = data.rates?.EUR || null;
+      eurToGbp = (usdToGbp && eur) ? usdToGbp / eur : null;
+    } catch (e) {
+      usdToGbp = null;
+      eurToGbp = null;
+    }
+  }
+
+  function parseQuery(raw) {
+    const tokens = raw.trim().split(/\s+/);
+    const last = tokens[tokens.length - 1];
+    if (tokens.length > 1 && NUMBER_PATTERN.test(last)) {
+      return { name: tokens.slice(0, -1).join(' '), number: last.split('/')[0] };
+    }
+    return { name: raw.trim(), number: null };
+  }
+
+  function gbp(usdVal) {
+    if (usdVal == null || usdToGbp == null) return null;
+    return '£' + (usdVal * usdToGbp).toFixed(2);
+  }
+
+  function eurGbp(eurVal) {
+    if (eurVal == null || eurToGbp == null) return null;
+    return '£' + (eurVal * eurToGbp).toFixed(2);
+  }
+
+  function pickVariant(prices) {
+    const priority = ['holofoil', '1stEditionHolofoil', 'unlimitedHolofoil', 'normal', '1stEditionNormal', 'reverseHolofoil'];
+    for (const key of priority) {
+      if (prices[key]) return [key, prices[key]];
+    }
+    const first = Object.entries(prices)[0];
+    return first || null;
+  }
+
+  const VARIANT_NAMES = {
+    normal: 'Normal', holofoil: 'Holofoil', reverseHolofoil: 'Reverse Holo',
+    '1stEditionNormal': '1st Ed Normal', '1stEditionHolofoil': '1st Ed Holo',
+    unlimitedHolofoil: 'Unlimited Holo'
+  };
+
+  document.getElementById('searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') search();
+  });
+
+  function search() {
+    const raw = document.getElementById('searchInput').value.trim();
+    if (!raw) return;
+    currentQuery = raw;
+    const parsed = parseQuery(raw);
+    parsedName = parsed.name;
+    parsedNumber = parsed.number;
+    currentPage = 1;
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('loadMoreBtn').style.display = 'none';
+    fetchCards(true);
+  }
+
+  function buildQueryCandidates(name, number) {
+    if (number) return [`name:${name} number:${number}`];
+    const tokens = name.trim().split(/\s+/);
+    if (tokens.length > 1) {
+      return [
+        `name:${tokens[0]} set.name:${tokens.slice(1).join(' ')}`,
+        `name:${name}`
+      ];
+    }
+    return [`name:${name}`];
+  }
+
+  async function loadMore() {
+    currentPage++;
+    fetchCards(false);
+  }
+
+  async function fetchCards(replace) {
+    const status = document.getElementById('status');
+    status.innerHTML = '<span class="spinner"></span> Searching...';
+
+    const candidates = replace ? buildQueryCandidates(parsedName, parsedNumber) : [activeQuery];
+
+    for (let i = 0; i < candidates.length; i++) {
+      const q = candidates[i];
+      const url = `${API}?q=${encodeURIComponent(q)}&page=${currentPage}&pageSize=${PAGE_SIZE}&orderBy=-set.releaseDate`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        totalCount = data.totalCount || 0;
+        const cards = data.data || [];
+
+        if (replace && cards.length === 0 && i < candidates.length - 1) continue;
+
+        if (replace && cards.length === 0) {
+          status.textContent = 'No cards found. Try a different name.';
+          return;
+        }
+
+        activeQuery = q;
+        status.textContent = replace ? `${totalCount} result${totalCount !== 1 ? 's' : ''} for "${currentQuery}"` : '';
+        const container = document.getElementById('results');
+        cards.forEach(card => container.appendChild(buildCard(card)));
+        const shown = (currentPage - 1) * PAGE_SIZE + cards.length;
+        document.getElementById('loadMoreBtn').style.display = shown < totalCount ? 'block' : 'none';
+        return;
+
+      } catch (err) {
+        status.textContent = 'Error fetching results. Check your connection.';
+        return;
+      }
+    }
+  }
+
+  function priceLinesHTML(market, low, high) {
+    if (!market && !low && !high) return '<span class="pending-text">No data</span>';
+    return `
+      ${market ? `<div class="price-line"><span class="lbl">Market</span><span class="val mkt">${market}</span></div>` : ''}
+      ${low    ? `<div class="price-line"><span class="lbl">Low</span><span class="val">${low}</span></div>` : ''}
+      ${high   ? `<div class="price-line"><span class="lbl">High</span><span class="val hi">${high}</span></div>` : ''}
+    `;
+  }
+
+  function buildCard(card) {
+    const el = document.createElement('div');
+    el.className = 'card';
+
+    const img = card.images?.small || '';
+    const name = card.name || 'Unknown';
+    const set = card.set?.name || '';
+    const number = card.number && card.set?.printedTotal
+      ? `${card.number}/${card.set.printedTotal}`
+      : card.number || '';
+
+    const rawTerm    = encodeURIComponent(`pokemon ${name}${number ? ' ' + number : ''}`);
+    const psa10Term  = encodeURIComponent(`pokemon ${name}${number ? ' ' + number : ''} PSA 10`);
+    const ebayRawBase   = `https://www.ebay.co.uk/sch/i.html?_nkw=${rawTerm}`;
+    const ebayPsaBase   = `https://www.ebay.co.uk/sch/i.html?_nkw=${psa10Term}`;
+    const rawSoldUrl    = `${ebayRawBase}&LH_Complete=1&LH_Sold=1&_sop=13`;
+    const rawSearchUrl  = `${ebayRawBase}&_sop=13`;
+    const psaSoldUrl    = `${ebayPsaBase}&LH_Complete=1&LH_Sold=1&_sop=13&_udlo=20`;
+    const psaSearchUrl  = `${ebayPsaBase}&_sop=13`;
+
+    const tcgPrices = card.tcgplayer?.prices || {};
+    const variant = pickVariant(tcgPrices);
+    const variantName = variant ? (VARIANT_NAMES[variant[0]] || variant[0]) : null;
+    const p = variant ? variant[1] : null;
+
+    const cm = card.cardmarket?.prices || {};
+    const ukMarket = eurGbp(cm.trendPrice);
+    const ukLow    = eurGbp(cm.lowPrice);
+    const ukHigh   = eurGbp(cm.avg30);
+
+    const isOutlier = p?.high && p?.market && p.high > p.market * 4;
+    const cleanHigh = isOutlier
+      ? (p.low ? 2 * p.market - p.low : p.market * 2)
+      : p?.high;
+
+    const highGbp = cleanHigh ? (isOutlier ? '~' : '') + gbp(cleanHigh) : null;
+
+    const intlRawHTML = p
+      ? priceLinesHTML(gbp(p.market), gbp(p.low), highGbp)
+      : '<span class="pending-text">No data</span>';
+
+    const ukRawHTML = (ukMarket || ukLow)
+      ? priceLinesHTML(ukMarket, ukLow, ukHigh)
+      : '<span class="pending-text">No data</span>';
+
+    const usdNote = usdToGbp ? `1 USD = £${usdToGbp.toFixed(4)}` : '';
+    const eurNote = eurToGbp ? `1 EUR = £${eurToGbp.toFixed(4)}` : '';
+
+    el.innerHTML = `
+      <div class="card-top">
+        ${img ? `<img src="${img}" alt="${name}" loading="lazy">` : ''}
+        <div class="card-meta">
+          <div class="card-name">${name}</div>
+          <div class="card-set">${set}${number ? ' · ' + number : ''}</div>
+        </div>
+      </div>
+      <div class="price-cols">
+
+        <div class="price-col">
+          <div class="col-header">UK (£)
+            ${eurNote ? `<span class="rate-note">Cardmarket · ${eurNote}</span>` : ''}
+          </div>
+          <div class="section-title">Raw</div>
+          ${ukRawHTML}
+          <div class="section-title">PSA 10</div>
+          <div class="pending-text">eBay pending</div>
+        </div>
+
+        <div class="price-col">
+          <div class="col-header">US (£)
+            ${usdNote ? `<span class="rate-note">TCGPlayer · ${usdNote}</span>` : ''}
+          </div>
+          <div class="section-title">Raw${variantName ? ' · ' + variantName : ''}</div>
+          ${intlRawHTML}
+          <div class="section-title">PSA 10</div>
+          <div class="pending-text">eBay pending</div>
+        </div>
+
+      </div>
+      <div class="ebay-btns">
+        <span class="ebay-row-label">Raw</span>
+        <a href="${rawSoldUrl}"   target="_blank" class="ebay-btn sold">Sold</a>
+        <a href="${rawSearchUrl}" target="_blank" class="ebay-btn search">Search</a>
+        <span class="ebay-row-label">PSA 10</span>
+        <a href="${psaSoldUrl}"   target="_blank" class="ebay-btn sold">Sold</a>
+        <a href="${psaSearchUrl}" target="_blank" class="ebay-btn search">Search</a>
+      </div>`;
+
+    return el;
+  }
+
+  initRates();
+</script>
+
+</body>
+</html>
