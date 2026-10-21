@@ -34,10 +34,7 @@
       letter-spacing: -0.5px;
     }
 
-    .search-bar {
-      display: flex;
-      gap: 8px;
-    }
+    .search-bar { display: flex; gap: 8px; }
 
     .search-bar input {
       flex: 1;
@@ -81,7 +78,6 @@
       gap: 14px;
     }
 
-    /* Card */
     .card {
       background: #1a1a2e;
       border-radius: 16px;
@@ -103,10 +99,7 @@
       flex-shrink: 0;
     }
 
-    .card-meta {
-      flex: 1;
-      min-width: 0;
-    }
+    .card-meta { flex: 1; min-width: 0; }
 
     .card-name {
       font-size: 16px;
@@ -115,12 +108,8 @@
       margin-bottom: 3px;
     }
 
-    .card-set {
-      font-size: 12px;
-      color: #888;
-    }
+    .card-set { font-size: 12px; color: #888; }
 
-    /* Price columns */
     .price-cols {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -173,17 +162,8 @@
       padding: 2px 0;
     }
 
-    .price-line .lbl {
-      font-size: 11px;
-      color: #777;
-    }
-
-    .price-line .val {
-      font-size: 12px;
-      font-weight: 700;
-      color: #4cd964;
-    }
-
+    .price-line .lbl { font-size: 11px; color: #777; }
+    .price-line .val { font-size: 12px; font-weight: 700; color: #4cd964; }
     .price-line .val.mkt { color: #f8c300; }
     .price-line .val.hi  { color: #ff6b6b; }
 
@@ -192,6 +172,34 @@
       color: #3a3a5a;
       font-style: italic;
       padding: 4px 0;
+    }
+
+    .sale-count {
+      font-size: 9px;
+      color: #444;
+      margin-top: 4px;
+    }
+
+    .price-cell-loading {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 0;
+    }
+
+    .mini-spinner {
+      width: 10px;
+      height: 10px;
+      border: 1.5px solid #2a2a4a;
+      border-top-color: #f8c300;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    .price-cell-loading span {
+      font-size: 10px;
+      color: #444;
     }
 
     .ebay-btns {
@@ -224,21 +232,10 @@
       display: block;
     }
 
-    .ebay-btn.sold {
-      background: #3a6bc4;
-      color: #fff;
-      border: none;
-    }
-
-    .ebay-btn.search {
-      background: transparent;
-      color: #3a6bc4;
-      border: 1px solid #3a6bc4;
-    }
-
+    .ebay-btn.sold   { background: #3a6bc4; color: #fff; border: none; }
+    .ebay-btn.search { background: transparent; color: #3a6bc4; border: 1px solid #3a6bc4; }
     .ebay-btn:active { opacity: 0.7; }
 
-    /* Load more */
     .load-more {
       margin: 8px 16px 24px;
       padding: 14px;
@@ -287,79 +284,42 @@
   const API = 'https://api.pokemontcg.io/v2/cards';
   let currentPage = 1;
   let currentQuery = '';
-  let parsedName = '';
+  let parsedName   = '';
   let parsedNumber = '';
-  let activeQuery = '';
-  let totalCount = 0;
-  let usdToGbp = null;
-  const PAGE_SIZE = 10;
+  let activeQuery  = '';
+  let totalCount   = 0;
+  let usdToGbp     = null;
+  const PAGE_SIZE  = 10;
 
   const NUMBER_PATTERN = /^[A-Z]*\d+(?:\/[A-Z0-9]*)?$/i;
+  const priceCache = new Map();
 
-  let eurToGbp = null;
+  // Lazy-load eBay prices when card enters viewport
+  const cardObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && !entry.target.dataset.ebayLoaded) {
+        entry.target.dataset.ebayLoaded = '1';
+        cardObserver.unobserve(entry.target);
+        loadEbayPrices(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
 
   async function initRates() {
     try {
-      const res = await fetch('https://open.er-api.com/v6/latest/USD');
+      const res  = await fetch('https://open.er-api.com/v6/latest/USD');
       const data = await res.json();
       usdToGbp = data.rates?.GBP || null;
-      const eur = data.rates?.EUR || null;
-      eurToGbp = (usdToGbp && eur) ? usdToGbp / eur : null;
-    } catch (e) {
-      usdToGbp = null;
-      eurToGbp = null;
-    }
+    } catch { usdToGbp = null; }
   }
 
   function parseQuery(raw) {
     const tokens = raw.trim().split(/\s+/);
-    const last = tokens[tokens.length - 1];
+    const last   = tokens[tokens.length - 1];
     if (tokens.length > 1 && NUMBER_PATTERN.test(last)) {
       return { name: tokens.slice(0, -1).join(' '), number: last.split('/')[0] };
     }
     return { name: raw.trim(), number: null };
-  }
-
-  function gbp(usdVal) {
-    if (usdVal == null || usdToGbp == null) return null;
-    return '£' + (usdVal * usdToGbp).toFixed(2);
-  }
-
-  function eurGbp(eurVal) {
-    if (eurVal == null || eurToGbp == null) return null;
-    return '£' + (eurVal * eurToGbp).toFixed(2);
-  }
-
-  function pickVariant(prices) {
-    const priority = ['holofoil', '1stEditionHolofoil', 'unlimitedHolofoil', 'normal', '1stEditionNormal', 'reverseHolofoil'];
-    for (const key of priority) {
-      if (prices[key]) return [key, prices[key]];
-    }
-    const first = Object.entries(prices)[0];
-    return first || null;
-  }
-
-  const VARIANT_NAMES = {
-    normal: 'Normal', holofoil: 'Holofoil', reverseHolofoil: 'Reverse Holo',
-    '1stEditionNormal': '1st Ed Normal', '1stEditionHolofoil': '1st Ed Holo',
-    unlimitedHolofoil: 'Unlimited Holo'
-  };
-
-  document.getElementById('searchInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') search();
-  });
-
-  function search() {
-    const raw = document.getElementById('searchInput').value.trim();
-    if (!raw) return;
-    currentQuery = raw;
-    const parsed = parseQuery(raw);
-    parsedName = parsed.name;
-    parsedNumber = parsed.number;
-    currentPage = 1;
-    document.getElementById('results').innerHTML = '';
-    document.getElementById('loadMoreBtn').style.display = 'none';
-    fetchCards(true);
   }
 
   function buildQueryCandidates(name, number) {
@@ -374,38 +334,56 @@
     return [`name:${name}`];
   }
 
+  document.getElementById('searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') search();
+  });
+
+  function search() {
+    const raw = document.getElementById('searchInput').value.trim();
+    if (!raw) return;
+    currentQuery = raw;
+    const parsed = parseQuery(raw);
+    parsedName   = parsed.name;
+    parsedNumber = parsed.number;
+    currentPage  = 1;
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('loadMoreBtn').style.display = 'none';
+    fetchCards(true);
+  }
+
   async function loadMore() {
     currentPage++;
     fetchCards(false);
   }
 
   async function fetchCards(replace) {
-    const status = document.getElementById('status');
+    const status     = document.getElementById('status');
     status.innerHTML = '<span class="spinner"></span> Searching...';
-
     const candidates = replace ? buildQueryCandidates(parsedName, parsedNumber) : [activeQuery];
 
     for (let i = 0; i < candidates.length; i++) {
-      const q = candidates[i];
+      const q   = candidates[i];
       const url = `${API}?q=${encodeURIComponent(q)}&page=${currentPage}&pageSize=${PAGE_SIZE}&orderBy=-set.releaseDate`;
-
       try {
-        const res = await fetch(url);
+        const res  = await fetch(url);
         const data = await res.json();
         totalCount = data.totalCount || 0;
         const cards = data.data || [];
 
         if (replace && cards.length === 0 && i < candidates.length - 1) continue;
-
         if (replace && cards.length === 0) {
           status.textContent = 'No cards found. Try a different name.';
           return;
         }
 
         activeQuery = q;
-        status.textContent = replace ? `${totalCount} result${totalCount !== 1 ? 's' : ''} for "${currentQuery}"` : '';
+        status.textContent = replace
+          ? `${totalCount} result${totalCount !== 1 ? 's' : ''} for "${currentQuery}"`
+          : '';
+
         const container = document.getElementById('results');
         cards.forEach(card => container.appendChild(buildCard(card)));
+
         const shown = (currentPage - 1) * PAGE_SIZE + cards.length;
         document.getElementById('loadMoreBtn').style.display = shown < totalCount ? 'block' : 'none';
         return;
@@ -417,62 +395,34 @@
     }
   }
 
-  function priceLinesHTML(market, low, high) {
-    if (!market && !low && !high) return '<span class="pending-text">No data</span>';
-    return `
-      ${market ? `<div class="price-line"><span class="lbl">Market</span><span class="val mkt">${market}</span></div>` : ''}
-      ${low    ? `<div class="price-line"><span class="lbl">Low</span><span class="val">${low}</span></div>` : ''}
-      ${high   ? `<div class="price-line"><span class="lbl">High</span><span class="val hi">${high}</span></div>` : ''}
-    `;
+  function loadingCell() {
+    return `<div class="price-cell-loading"><div class="mini-spinner"></div><span>Loading...</span></div>`;
   }
 
   function buildCard(card) {
     const el = document.createElement('div');
     el.className = 'card';
 
-    const img = card.images?.small || '';
-    const name = card.name || 'Unknown';
-    const set = card.set?.name || '';
+    const img    = card.images?.small || '';
+    const name   = card.name || 'Unknown';
+    const set    = card.set?.name || '';
     const number = card.number && card.set?.printedTotal
       ? `${card.number}/${card.set.printedTotal}`
       : card.number || '';
 
-    const rawTerm    = encodeURIComponent(`pokemon ${name}${number ? ' ' + number : ''}`);
-    const psa10Term  = encodeURIComponent(`pokemon ${name}${number ? ' ' + number : ''} PSA 10`);
-    const ebayRawBase   = `https://www.ebay.co.uk/sch/i.html?_nkw=${rawTerm}`;
-    const ebayPsaBase   = `https://www.ebay.co.uk/sch/i.html?_nkw=${psa10Term}`;
-    const rawSoldUrl    = `${ebayRawBase}&LH_Complete=1&LH_Sold=1&_sop=13`;
-    const rawSearchUrl  = `${ebayRawBase}&_sop=13`;
-    const psaSoldUrl    = `${ebayPsaBase}&LH_Complete=1&LH_Sold=1&_sop=13&_udlo=20`;
-    const psaSearchUrl  = `${ebayPsaBase}&_sop=13`;
+    const rawTerm   = encodeURIComponent(`pokemon ${name}${number ? ' ' + number : ''}`);
+    const psa10Term = encodeURIComponent(`pokemon ${name}${number ? ' ' + number : ''} PSA 10`);
+    const ebayRawBase = `https://www.ebay.co.uk/sch/i.html?_nkw=${rawTerm}`;
+    const ebayPsaBase = `https://www.ebay.co.uk/sch/i.html?_nkw=${psa10Term}`;
+    const rawSoldUrl   = `${ebayRawBase}&LH_Complete=1&LH_Sold=1&_sop=13`;
+    const rawSearchUrl = `${ebayRawBase}&_sop=13`;
+    const psaSoldUrl   = `${ebayPsaBase}&LH_Complete=1&LH_Sold=1&_sop=13&_udlo=20`;
+    const psaSearchUrl = `${ebayPsaBase}&_sop=13`;
 
-    const tcgPrices = card.tcgplayer?.prices || {};
-    const variant = pickVariant(tcgPrices);
-    const variantName = variant ? (VARIANT_NAMES[variant[0]] || variant[0]) : null;
-    const p = variant ? variant[1] : null;
-
-    const cm = card.cardmarket?.prices || {};
-    const ukMarket = eurGbp(cm.trendPrice);
-    const ukLow    = eurGbp(cm.lowPrice);
-    const ukHigh   = eurGbp(cm.avg30);
-
-    const isOutlier = p?.high && p?.market && p.high > p.market * 4;
-    const cleanHigh = isOutlier
-      ? (p.low ? 2 * p.market - p.low : p.market * 2)
-      : p?.high;
-
-    const highGbp = cleanHigh ? (isOutlier ? '~' : '') + gbp(cleanHigh) : null;
-
-    const intlRawHTML = p
-      ? priceLinesHTML(gbp(p.market), gbp(p.low), highGbp)
-      : '<span class="pending-text">No data</span>';
-
-    const ukRawHTML = (ukMarket || ukLow)
-      ? priceLinesHTML(ukMarket, ukLow, ukHigh)
-      : '<span class="pending-text">No data</span>';
+    // Store eBay search term for lazy loading
+    el.dataset.ebayTerm = `pokemon ${name}${number ? ' ' + number : ''}`;
 
     const usdNote = usdToGbp ? `1 USD = £${usdToGbp.toFixed(4)}` : '';
-    const eurNote = eurToGbp ? `1 EUR = £${eurToGbp.toFixed(4)}` : '';
 
     el.innerHTML = `
       <div class="card-top">
@@ -483,27 +433,24 @@
         </div>
       </div>
       <div class="price-cols">
-
         <div class="price-col">
           <div class="col-header">UK (£)
-            ${eurNote ? `<span class="rate-note">Cardmarket · ${eurNote}</span>` : ''}
+            <span class="rate-note">eBay UK</span>
           </div>
           <div class="section-title">Raw</div>
-          ${ukRawHTML}
+          <div data-price="uk-raw">${loadingCell()}</div>
           <div class="section-title">PSA 10</div>
-          <div class="pending-text">eBay pending</div>
+          <div data-price="uk-psa10">${loadingCell()}</div>
         </div>
-
         <div class="price-col">
           <div class="col-header">US (£)
-            ${usdNote ? `<span class="rate-note">TCGPlayer · ${usdNote}</span>` : ''}
+            <span class="rate-note">eBay US${usdNote ? ' · ' + usdNote : ''}</span>
           </div>
-          <div class="section-title">Raw${variantName ? ' · ' + variantName : ''}</div>
-          ${intlRawHTML}
+          <div class="section-title">Raw</div>
+          <div data-price="us-raw">${loadingCell()}</div>
           <div class="section-title">PSA 10</div>
-          <div class="pending-text">eBay pending</div>
+          <div data-price="us-psa10">${loadingCell()}</div>
         </div>
-
       </div>
       <div class="ebay-btns">
         <span class="ebay-row-label">Raw</span>
@@ -514,7 +461,62 @@
         <a href="${psaSearchUrl}" target="_blank" class="ebay-btn search">Search</a>
       </div>`;
 
+    cardObserver.observe(el);
     return el;
+  }
+
+  async function loadEbayPrices(cardEl) {
+    const term = cardEl.dataset.ebayTerm;
+    if (!term) return;
+
+    const [ukRaw, ukPsa, usRaw, usPsa] = await Promise.all([
+      fetchEbay(term, 'uk', 'raw'),
+      fetchEbay(term, 'uk', 'psa10'),
+      fetchEbay(term, 'us', 'raw'),
+      fetchEbay(term, 'us', 'psa10'),
+    ]);
+
+    updateCell(cardEl, 'uk-raw',   ukRaw, 1);
+    updateCell(cardEl, 'uk-psa10', ukPsa, 1);
+    updateCell(cardEl, 'us-raw',   usRaw, usdToGbp);
+    updateCell(cardEl, 'us-psa10', usPsa, usdToGbp);
+  }
+
+  async function fetchEbay(term, site, type) {
+    const key = `${term}|${site}|${type}`;
+    if (priceCache.has(key)) return priceCache.get(key);
+    try {
+      const r = await fetch(`/api/ebay?term=${encodeURIComponent(term)}&site=${site}&type=${type}`);
+      if (!r.ok) return null;
+      const data = await r.json();
+      priceCache.set(key, data);
+      return data;
+    } catch { return null; }
+  }
+
+  function updateCell(cardEl, key, data, rate) {
+    const cell = cardEl.querySelector(`[data-price="${key}"]`);
+    if (!cell) return;
+
+    if (!data?.market) {
+      cell.innerHTML = '<span class="pending-text">No data</span>';
+      return;
+    }
+
+    const r   = rate || 1;
+    const fmt = v => v != null ? '£' + (v * r).toFixed(2) : null;
+
+    cell.innerHTML = `
+      ${priceLinesHTML(fmt(data.market), fmt(data.low), fmt(data.high))}
+      <div class="sale-count">${data.count} sale${data.count !== 1 ? 's' : ''}</div>`;
+  }
+
+  function priceLinesHTML(market, low, high) {
+    if (!market && !low && !high) return '<span class="pending-text">No data</span>';
+    return `
+      ${market ? `<div class="price-line"><span class="lbl">Market</span><span class="val mkt">${market}</span></div>` : ''}
+      ${low    ? `<div class="price-line"><span class="lbl">Low</span><span class="val">${low}</span></div>` : ''}
+      ${high   ? `<div class="price-line"><span class="lbl">High</span><span class="val hi">${high}</span></div>` : ''}`;
   }
 
   initRates();
